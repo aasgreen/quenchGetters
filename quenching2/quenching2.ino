@@ -1,4 +1,3 @@
-#include <Adafruit_MotorShield.h>
 #include <LiquidCrystal.h>
 LiquidCrystal lcd(7, 8, 9, 10, 11 , 12);
 
@@ -16,6 +15,7 @@ float timeArray[120];
 char pDisp[5];
 char pSet[5];
 int clearCounter = 0;
+int readIndex = 0;
 
 //values for pressure sensor
 
@@ -23,6 +23,7 @@ int sensorPinPlus = A1;
 int pSetPin = A3;
 float pSetVal = 0;
 int sensorValuePlus = 0;
+float flukeReader = 0;
 int setPinValue=0;
 float vMinus = 0.;
 float vPlus = 0.;
@@ -34,11 +35,16 @@ long endTime = 3000000; //time to log pressure
 int initialTime = 0; //time of the start of the logging
 float v = 0; //diff between vPlus and vMinus
 int index = 0; //index for loops
-const int MaxChars = 3; //limit for serial communication
-char strValue[MaxChars + 1];
+const int maxChars = 20; //limit for serial communication
+char strValue[maxChars + 1];
 int steps = 0;
 float qTime = 0;
+int setP =5;
+int serialTrigger=0;
 
+// values for serial reading
+bool readSet = false;
+bool readV = false;
 //setup stepper motor
 //#include <Wire.h>
 //#include <Adafruit_MotorShield.h>
@@ -69,95 +75,76 @@ boolean debounce(int pin)
   return state;
 }
 
-void pressurelog()
-{
-  if (1);//Serial.available()); //Check if at least one character is available
-
-  t = 0;
-  int i = 0;
-  float Pressure = 0;
-  float PressureAve = 0;
-  initialTime = millis();
-  while (t < initialTime + endTime)
-  {
-    t = millis();
-
-
-    //get values from the analog pins
-    sensorValuePlus = analogRead(sensorPinPlus);
-    Pressure = ((sensorValuePlus) / 1023.)/1000 * 5 / .025 * 10.; //units of inches of h20
-    i = i + 1;
-    PressureAve = PressureAve + Pressure;
-    //print to serial
-    Serial.print(t); Serial.print(" , "); Serial.println(Pressure, 6);
-  }
-  PressureAve = PressureAve / i;
-  Serial.println('done'); 
-  //Serial.print("Ave Pressure: "); Serial.println(PressureAve, 6);
-
-
-  //end switching part of the program
-
-
-}
 
 //define serial function
 
 void serialEvent()
 {
-
-  while (Serial.available())
-  {
-    Serial.write(steps);
     char ch = Serial.read();
-    //Serial.write("available "); Serial.write(ch); Serial.write("index"); Serial.println(index);
-//    if ((index < MaxChars) && isDigit(ch))
- //   {
- //     strValue[index++] = ch;
-//    }
-
-    if (0)
+    if (ch == 't')
+       {
+        serialTrigger=1; Serial.println("triggering");
+         }
+    else if (ch == 's')
       {
-
-      }
-    else
-    {
-      if (ch == 'B')
-      {
-        strValue[index] = 0;
- //       steps = atoi(strValue);
- //       myMotor ->step(steps, BACKWARD, DOUBLE);
-        Serial.write("stepping back "); Serial.println(steps);
+        //strValue[readIndex] = 0;
+        readIndex = 0;
+        readSet = true;
+        //Serial.println("t1");
       }
 
-      else if (ch == 'F')
+    else if (ch == 'v')
       {
-        strValue[index] = 0;
- //       steps = atoi(strValue);
-  //      myMotor ->step(steps, FORWARD, DOUBLE);
-        Serial.write("stepping forward "); Serial.println(steps);
-
+        //strValue[readIndex] = 0;
+        //strValue[0] = 0;
+        readIndex = 0;
+        readV = true;
+                //Serial.print("t2 "); Serial.println(maxChars);
+//
       }
+     else if (ch != 10 && readIndex < maxChars && readSet) //carriage return
+          {
+            strValue[readIndex++] = ch;
+         //                  Serial.println("t3");
 
-      else if (ch == 76) //ascii for L
-      {
-        pressurelog();
-      }
+            //Serial.print(index);Serial.print(ch); Serial.print(index);Serial.print(atoi(strValue)); 
+          }
+     else if (ch != '\n' && readIndex < maxChars && readV) //carriage return
+          {
+            strValue[readIndex++] = ch;
+            //Serial.write("index ");Serial.print(readIndex);Serial.print(' ');Serial.write("current value ");Serial.println(ch); 
+          }
+     else if (ch=0)
+     {
+      Serial.println("zero");
+     }
+     
+     else
+          {
+            strValue[readIndex]=0;
+            if (readSet)
+            {
+              setP = atoi(strValue);
+        //      Serial.write(ch);Serial.write("set pressure "); Serial.println(setP);
+             readIndex=0;
+            //strValue[0]=0;
+            readSet=false;
+            readV = false;
+            }
+            else if (readV)
+            {
+             flukeReader = atof(strValue);
 
-      else
-      {
-        Serial.println("Try Again");
-        Serial.println(ch);
-      }
-
-
-
-    }
-  index=0;
-
-  }
-  index = 0;
+             //Serial.print(ch);Serial.print(' ');Serial.print(readV);Serial.print(" aV: "); Serial.println(flukeReader,5);
+            readIndex=0;
+            //strValue[0]=0;
+            readSet=false;
+            readV = false;
+            }
+         // Serial.println("elsed");
+          }
 }
+
 
 
 void setup()
@@ -213,10 +200,12 @@ void loop()
   }
   clearCounter=clearCounter+1;
   //Serial.println(clearCounter);
-  sensorValuePlus= analogRead(sensorPinPlus);
-  setPinValue = analogRead(pSetPin);
+  //sensorValuePlus= analogRead(sensorPinPlus);
+  //setPinValue = analogRead(pSetPin);
+  setPinValue = float(setP);
+ // Serial.println(setP);
   pSetVal = ((setPinValue) / 1023.) * 5 / .025 * 10.; //units of inches of h20
-  pressureValue = ((sensorValuePlus) / 1023.) * 5 / .025 * 10.; //units of inches of h20
+  pressureValue = ((flukeReader )) / .025 * 10.; //units of inches of h20
   lcd.setCursor(3,1);
   dtostrf(pressureValue,5,2,pDisp);
   lcd.print(pDisp);
@@ -226,7 +215,7 @@ void loop()
   //Serial.println(toggle);
 
   //lcd.print(millis()/1000);
-  delay(200);
+  //delay(200);
   //Serial.print(pressureValue);
   //Serial.print('\n');
   
@@ -234,8 +223,9 @@ void loop()
   {
     serialEvent();
   }
-  if (!debounce(inputPin) || sensorValuePlus == setPinValue)
+  if (!debounce(inputPin) || serialTrigger == 1)
   {
+    serialTrigger = 0; //reset trigger so it doesn't keep firing
     toggle = (toggle + 1) % 2; // switch between 1 and zero every time it is pressed
     Serial.print("TOGGLED "); Serial.println(toggle);
 
@@ -303,7 +293,3 @@ void loop()
 
 
 }
-
-
-
-
