@@ -204,7 +204,7 @@ void loop()
   //setPinValue = analogRead(pSetPin);
   setPinValue = float(setP);
  // Serial.println(setP);
-  pSetVal = ((setPinValue) / 1023.) * 5 / .025 * 10.; //units of inches of h20
+  pSetVal = ((setPinValue)); //units of inches of h20
   pressureValue = ((flukeReader )) / .025 * 10.; //units of inches of h20
   lcd.setCursor(3,1);
   dtostrf(pressureValue,5,2,pDisp);
@@ -254,14 +254,14 @@ void loop()
       lcd.setCursor(6,0);
       lcd.print("O");
       Serial.println("OPEN");
-      Serial.println("Begin Read");
+      //Serial.println("Begin Read");
       //now print out the results of the pressure logging for anyone to decode
       for (int counter = 0; counter<120; counter++)
       {
         String row = String(timeArray[counter],8)+" , "+String(analogArray[counter],8);
-        Serial.println(row);
+        //Serial.println(row);
       }
-      Serial.println("End Read");
+      //Serial.println("End Read");
       //de-arm trigger
       digitalWrite(triggerPin,LOW);
     }

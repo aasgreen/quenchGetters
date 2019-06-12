@@ -15,6 +15,9 @@ Log = 0 #global variable telling us if the arduino is sending data to be logged 
 LogLine = []
 pSet = 10000.
 voltRead = 0.
+writeIndex=0
+writeVolt = False
+qlogV = []
 
 arPort = 5
 vPort = 4
@@ -56,7 +59,7 @@ try:
 
     #Loop to test if user input data, or arduino sends data
     fileWrite=False
-    cmd = 'S0'
+    cmd = 'S1'
     vSer.write(str.encode(cmd+'\n'))
     while connected:
         try:
@@ -87,9 +90,19 @@ try:
                 elif ('s' in linel):
                     print('test')
                     pSet = float((linel[1::]))
-                elif line == "t":
-                    filmF = open('film'+str(time.stime()),'w')
-                    filmF.writelines("#"+date)
+                elif ('t' in linel):
+
+                    qlog=[]
+                    writeIndex = 0
+                    startTime = time.time()
+                    writeVolt = True
+
+                    #    for row in qlog[:-1]:
+                    #       outqlog.write(row) 
+
+
+#                    filmF = open('film'+str(time.time()),'w')
+#                    filmF.writelines("#"+date)
 
                 aSer.write(line.encode())
                 #print(line.encode())
@@ -101,6 +114,10 @@ try:
                 #print(line.strip())
                 try:
                     voltRead =1000*float(line.strip())
+                    if (writeVolt==True):
+                        delTime = time.time()-startTime
+                        qlogV.append(str(delTime)+' , '+str(voltRead/1000*10/.025))
+                        writeIndex = writeIndex+1
                # print('now print')
                     #print("v: "+str(voltRead)) 
                     aSer.write(('v'+str(voltRead)+"\n").encode())
@@ -109,7 +126,7 @@ try:
     #                aSer.flushInput()
     #                vSer.flushInput()
     #                vSer.flushOutput()
-                    #aSer.write(('v'+str(0.1)+'\r\n').encode())
+       
                 except Exception as e:
                     print('stream corrupted')
                     print(e)
@@ -129,22 +146,33 @@ try:
                     Log = 1
                     print('Now going to log data')
                 if line == "End Read\r\n":
-                    fileName =input('Please enter quenching run...: ')
-                    with open('qRun-'+fileName+'.csv','w') as outqlog:
-                        for row in qlog[:-1]:
-                           outqlog.write(row) 
+               #     fileName =input('Please enter quenching run...: ')
+               #     with open('qRun-'+fileName+'.csv','w') as outqlog:
+               #         for row in qlog[:-1]:
+               #            outqlog.write(row) 
 
                     #np.savetxt('qRun-'+fileName+'.csv',qlog,delimiter=',')
                     Log = 0
-                if fileWrite:
-                    row =  [float(x) for x in line.strip().strip('\x00').split(',')]
+               # if fileWrite:
+               #     row =  [float(x) for x in line.strip().strip('\x00').split(',')]
                     #glassF.write(row)
-                    writer.writerow(row)  
+               #     writer.writerow(row)  
             #    print('printing')
             #time.sleep(.1)
             print(str(pSet)+' '+str(voltRead*10./0.025))
             if (math.isclose(pSet, voltRead*10./0.025,rel_tol=1e-1)):
                 print('trigger')
+            if writeIndex >200:
+                fileName =input('Please enter quenching run...: ')
+                outqVlog =open('qRun-'+fileName+'.csv','w')
+                outqVlog.writelines('#'+date)
+                writeIndex=0
+                for row in qlogV:
+                    outqVlog.write(row+'\n')
+                writeVolt=False
+                outqVlog.close()
+                print('end logging')
+                
         except Exception as e:
             print(e)
             vSer.close()
